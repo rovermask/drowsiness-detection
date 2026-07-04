@@ -10,7 +10,7 @@ Live webcam drowsiness detector using MediaPipe Face Mesh. Tracks:
 ```bash
 cd drowsiness_detection
 python -m venv venv
-source venv/bin/activate      # Windows: venv\Scripts\activate
+venv\Scripts\activate      # Mac: source venv/bin/activate
 pip install -r requirements.txt
 python app.py
 ```
