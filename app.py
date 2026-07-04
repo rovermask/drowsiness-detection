@@ -23,7 +23,7 @@ def gen_frames():
         if not success:
             break
 
-        frame = cv2.flip(frame, 1)  # mirror, feels more natural for a self-facing camera
+        frame = cv2.flip(frame, 1)  # mirror the cv2
         frame = detector.process_frame(frame)
 
         ok, buffer = cv2.imencode('.jpg', frame)
