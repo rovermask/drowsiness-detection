@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vigilance Monitor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0d12;
+    --panel: #10141b;
+    --panel-raised: #151a23;
+    --border: #232a36;
+    --text: #e8ecf1;
+    --muted: #6b7685;
+    --safe: #34d8a0;
+    --safe-dim: rgba(52,216,160,0.12);
+    --warn: #ffb020;
+    --warn-dim: rgba(255,176,32,0.12);
+    --alert: #ff4757;
+    --alert-dim: rgba(255,71,87,0.14);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background:
+      radial-gradient(ellipse 900px 500px at 50% -10%, rgba(52,216,160,0.06), transparent),
+      var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 28px 16px 60px;
+  }
+
+  .display { font-family: "Oswald", sans-serif; }
+  .mono { font-family: "JetBrains Mono", monospace; }
+
+  /* ---------- Top bar ---------- */
+  .topbar {
+    width: 100%;
+    max-width: 980px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 18px;
+    margin-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  .brand {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+  }
+  .brand .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--safe);
+    box-shadow: 0 0 8px var(--safe);
+    flex-shrink: 0;
+  }
+  .brand h1 {
+    font-family: "Oswald", sans-serif;
+    font-weight: 600;
+    font-size: 1.15rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin: 0;
+  }
+  .brand .sub {
+    color: var(--muted);
+    font-size: 0.72rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .top-right { display: flex; align-items: center; gap: 18px; }
+  .session-clock {
+    font-size: 0.85rem;
+    color: var(--muted);
+    letter-spacing: 0.03em;
+  }
+  .session-clock span { color: var(--text); }
+
+  .status-pill {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 14px;
+    border-radius: 3px;
+    border: 1px solid var(--safe);
+    background: var(--safe-dim);
+    color: var(--safe);
+    font-family: "Oswald", sans-serif;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    transition: border-color 0.25s, background 0.25s, color 0.25s;
+  }
+  .status-pill .ring {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: currentColor;
+  }
+  .status-pill.warn { border-color: var(--warn); background: var(--warn-dim); color: var(--warn); }
+  .status-pill.alert { border-color: var(--alert); background: var(--alert-dim); color: var(--alert); }
+  .status-pill.alert .ring { animation: blink-ring 0.9s steps(1) infinite; }
+  @keyframes blink-ring { 50% { opacity: 0.15; } }
+
+  /* ---------- Layout ---------- */
+  .layout {
+    display: flex;
+    gap: 18px;
+    flex-wrap: wrap;
+    justify-content: center;
+    width: 100%;
+    max-width: 980px;
+  }
+
+  /* ---------- Video / HUD frame ---------- */
+  .hud {
+    position: relative;
+    padding: 14px;
+    flex: 1 1 480px;
+    min-width: 300px;
+  }
+  .hud-corner {
+    position: absolute;
+    width: 22px;
+    height: 22px;
+    border-color: var(--safe);
+    transition: border-color 0.25s;
+    pointer-events: none;
+  }
+  .hud-corner.tl { top: 0; left: 0; border-top: 2px solid; border-left: 2px solid; }
+  .hud-corner.tr { top: 0; right: 0; border-top: 2px solid; border-right: 2px solid; }
+  .hud-corner.bl { bottom: 0; left: 0; border-bottom: 2px solid; border-left: 2px solid; }
+  .hud-corner.br { bottom: 0; right: 0; border-bottom: 2px solid; border-right: 2px solid; }
+  .hud.warn .hud-corner { border-color: var(--warn); }
+  .hud.alert .hud-corner { border-color: var(--alert); }
+
+  .video-frame {
+    position: relative;
+    border-radius: 2px;
+    overflow: hidden;
+    background: #000;
+    line-height: 0;
+  }
+  .video-frame img { display: block; width: 100%; height: auto; }
+  .video-frame::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+      to bottom,
+      rgba(255,255,255,0.025) 0px,
+      rgba(255,255,255,0.025) 1px,
+      transparent 1px,
+      transparent 3px
+    );
+    pointer-events: none;
+  }
+  .video-tag {
+    position: absolute;
+    bottom: 8px; left: 8px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.65rem;
+    color: var(--safe);
+    background: rgba(0,0,0,0.5);
+    padding: 2px 8px;
+    letter-spacing: 0.05em;
+  }
+
+  /* ---------- Telemetry panel ---------- */
+  .telemetry {
+    flex: 1 1 300px;
+    min-width: 260px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .trace-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px 14px 10px;
+  }
+  .trace-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 6px;
+  }
+  .trace-head .label {
+    font-size: 0.7rem;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+  .trace-head .value {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 1rem;
+    font-weight: 500;
+  }
+  .trace-card canvas { display: block; width: 100%; height: 46px; }
+
+  .count-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .count-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px;
+    text-align: center;
+  }
+  .count-card .num {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 2rem;
+    font-weight: 700;
+    line-height: 1;
+  }
+  .count-card .label {
+    margin-top: 6px;
+    font-size: 0.68rem;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .window-note {
+    text-align: center;
+    font-size: 0.68rem;
+    color: var(--muted);
+    letter-spacing: 0.04em;
+  }
+
+  /* ---------- Alert strip ---------- */
+  .alert-strip {
+    width: 100%;
+    max-width: 980px;
+    margin-top: 16px;
+    max-height: 0;
+    overflow: hidden;
+    border-radius: 6px;
+    transition: max-height 0.3s ease;
+  }
+  .alert-strip.show { max-height: 60px; }
+  .alert-strip-inner {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 13px;
+    background: var(--alert-dim);
+    border: 1px solid var(--alert);
+    border-radius: 6px;
+    color: var(--alert);
+    font-family: "Oswald", sans-serif;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    font-size: 0.9rem;
+    animation: strip-pulse 1s ease-in-out infinite;
+  }
+  @keyframes strip-pulse { 50% { background: rgba(255,71,87,0.24); } }
+
+  /* ---------- Controls ---------- */
+  .controls {
+    margin-top: 22px;
+    display: flex;
+    gap: 10px;
+  }
+  button {
+    font-family: "JetBrains Mono", monospace;
+    background: var(--panel);
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 9px 16px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.78rem;
+    letter-spacing: 0.03em;
+    transition: border-color 0.2s, color 0.2s;
+  }
+  button:hover { border-color: var(--safe); color: var(--safe); }
+  button:focus-visible { outline: 2px solid var(--safe); outline-offset: 2px; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .status-pill.alert .ring,
+    .alert-strip-inner { animation: none; }
+  }
+
+  @media (max-width: 620px) {
+    .topbar { flex-direction: column; align-items: flex-start; gap: 10px; }
+    .top-right { width: 100%; justify-content: space-between; }
+  }
+</style>
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="brand">
+      <span class="dot" id="brandDot"></span>
+      <div>
+        <h1>Vigilance Monitor</h1>
+        <div class="sub">Face mesh &middot; EAR / MAR telemetry</div>
+      </div>
+    </div>
+    <div class="top-right">
+      <div class="session-clock">SESSION <span id="clock" class="mono">00:00:00</span></div>
+      <div class="status-pill" id="statusPill"><span class="ring"></span><span id="statusText">Nominal</span></div>
+    </div>
+  </div>
+
+  <div class="layout">
+    <div class="hud" id="hud">
+      <span class="hud-corner tl"></span>
+      <span class="hud-corner tr"></span>
+      <span class="hud-corner bl"></span>
+      <span class="hud-corner br"></span>
+      <div class="video-frame">
+        <img src="{{ url_for('video_feed') }}" alt="Live camera feed">
+        <div class="video-tag" id="videoTag">CAM 01 &middot; LIVE</div>
+      </div>
+    </div>
+
+    <div class="telemetry">
+      <div class="trace-card">
+        <div class="trace-head">
+          <span class="label">Eye aspect ratio</span>
+          <span class="value mono" id="earValue">0.00</span>
+        </div>
+        <canvas id="earCanvas"></canvas>
+      </div>
+
+      <div class="trace-card">
+        <div class="trace-head">
+          <span class="label">Mouth aspect ratio</span>
+          <span class="value mono" id="marValue">0.00</span>
+        </div>
+        <canvas id="marCanvas"></canvas>
+      </div>
+
+      <div class="count-row">
+        <div class="count-card">
+          <div class="num" id="blinkCount" style="color: var(--safe);">0</div>
+          <div class="label">Eye closures</div>
+        </div>
+        <div class="count-card">
+          <div class="num" id="yawnCount" style="color: var(--warn);">0</div>
+          <div class="label">Yawns</div>
+        </div>
+      </div>
+      <div class="window-note" id="windowNote">rolling 60s window</div>
+    </div>
+  </div>
+
+  <div class="alert-strip" id="alertStrip">
+    <div class="alert-strip-inner">⚠ Drowsiness detected — eyes closed too long</div>
+  </div>
+
+  <div class="controls">
+    <button id="muteBtn" onclick="toggleMute()">🔊 SOUND ON</button>
+    <button onclick="resetCounters()">RESET COUNTERS</button>
+  </div>
+
+<script>
+// ---------- Session clock ----------
+const startTime = Date.now();
+function tickClock() {
+  const s = Math.floor((Date.now() - startTime) / 1000);
+  const hh = String(Math.floor(s / 3600)).padStart(2, '0');
+  const mm = String(Math.floor((s % 3600) / 60)).padStart(2, '0');
+  const ss = String(s % 60).padStart(2, '0');
+  document.getElementById('clock').textContent = `${hh}:${mm}:${ss}`;
+}
+setInterval(tickClock, 1000);
+
+// ---------- Rolling waveform traces ----------
+const TRACE_LEN = 90;
+const earHistory = new Array(TRACE_LEN).fill(0.3);
+const marHistory = new Array(TRACE_LEN).fill(0.1);
+
+function drawTrace(canvasId, history, color, maxVal) {
+  const canvas = document.getElementById(canvasId);
+  const dpr = window.devicePixelRatio || 1;
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  canvas.width = w * dpr;
+  canvas.height = h * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, w, h);
+
+  ctx.beginPath();
+  history.forEach((v, i) => {
+    const x = (i / (TRACE_LEN - 1)) * w;
+    const y = h - Math.min(v / maxVal, 1) * h;
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  });
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.6;
+  ctx.shadowColor = color;
+  ctx.shadowBlur = 6;
+  ctx.stroke();
+}
+
+function pushHistory(arr, val) {
+  arr.shift();
+  arr.push(val);
+}
+
+// ---------- Alarm ----------
+let muted = false;
+let audioCtx = null;
+let beepInterval = null;
+
+function toggleMute() {
+  muted = !muted;
+  document.getElementById('muteBtn').textContent = muted ? '🔇 SOUND OFF' : '🔊 SOUND ON';
+  if (muted) stopBeep();
+}
+
+function ensureAudioCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+
+function beepOnce() {
+  if (muted) return;
+  const ctx = ensureAudioCtx();
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = 'square';
+  osc.frequency.value = 880;
+  gain.gain.value = 0.15;
+  osc.connect(gain).connect(ctx.destination);
+  osc.start();
+  setTimeout(() => osc.stop(), 220);
+}
+
+function startBeep() {
+  if (beepInterval) return;
+  beepOnce();
+  beepInterval = setInterval(beepOnce, 700);
+}
+function stopBeep() {
+  if (beepInterval) { clearInterval(beepInterval); beepInterval = null; }
+}
+
+function resetCounters() {
+  fetch('/reset').then(() => poll());
+}
+
+// ---------- Status application ----------
+function applyState(state) {
+  // state: 'safe' | 'warn' | 'alert'
+  const pill = document.getElementById('statusPill');
+  const hud = document.getElementById('hud');
+  const dot = document.getElementById('brandDot');
+  const strip = document.getElementById('alertStrip');
+
+  pill.classList.remove('warn', 'alert');
+  hud.classList.remove('warn', 'alert');
+
+  if (state === 'alert') {
+    pill.classList.add('alert');
+    hud.classList.add('alert');
+    document.getElementById('statusText').textContent = 'Drowsy alert';
+    dot.style.background = 'var(--alert)';
+    dot.style.boxShadow = '0 0 8px var(--alert)';
+    strip.classList.add('show');
+    startBeep();
+  } else if (state === 'warn') {
+    pill.classList.add('warn');
+    hud.classList.add('warn');
+    document.getElementById('statusText').textContent = 'No face detected';
+    dot.style.background = 'var(--warn)';
+    dot.style.boxShadow = '0 0 8px var(--warn)';
+    strip.classList.remove('show');
+    stopBeep();
+  } else {
+    document.getElementById('statusText').textContent = 'Nominal';
+    dot.style.background = 'var(--safe)';
+    dot.style.boxShadow = '0 0 8px var(--safe)';
+    strip.classList.remove('show');
+    stopBeep();
+  }
+}
+
+async function poll() {
+  try {
+    const res = await fetch('/status');
+    const data = await res.json();
+
+    pushHistory(earHistory, data.ear);
+    pushHistory(marHistory, data.mar);
+
+    const alertActive = data.drowsy_alert;
+    drawTrace('earCanvas', earHistory, alertActive ? '#ff4757' : '#34d8a0', 0.45);
+    drawTrace('marCanvas', marHistory, data.mouth_open_now ? '#ffb020' : '#34d8a0', 1.0);
+
+    document.getElementById('earValue').textContent = data.ear.toFixed(2);
+    document.getElementById('marValue').textContent = data.mar.toFixed(2);
+    document.getElementById('blinkCount').textContent = data.blinks_in_window;
+    document.getElementById('yawnCount').textContent = data.yawns_in_window;
+    document.getElementById('windowNote').textContent = `rolling ${data.window_seconds}s window`;
+
+    if (!data.face_found) applyState('warn');
+    else if (data.drowsy_alert) applyState('alert');
+    else applyState('safe');
+  } catch (e) {
+    console.error('status poll failed', e);
+  }
+}
+
+setInterval(poll, 400);
+poll();
+window.addEventListener('resize', () => {
+  drawTrace('earCanvas', earHistory, '#34d8a0', 0.45);
+  drawTrace('marCanvas', marHistory, '#34d8a0', 1.0);
+});
+</script>
+
+</body>
+</html>
